@@ -7637,31 +7637,44 @@ ${jsonFormat}
     });
   }
   
-  // ▼▼▼ 【补全】游戏大厅卡片点击跳转 ▼▼▼
-  // 狼人杀
-  const wolfCard = document.getElementById('game-card-werewolf');
-  if (wolfCard) wolfCard.addEventListener('click', () => openWerewolfSetup());
+  // ▼▼▼ 【修正版】游戏大厅卡片点击跳转 (基于 data-game 属性) ▼▼▼
+  // 我们监听整个游戏列表容器，这样更稳健
+  const gameGrid = document.getElementById('game-hall-grid');
+  if (gameGrid) {
+    gameGrid.addEventListener('click', (e) => {
+      // 找到被点击的卡片（处理卡片内部元素的点击）
+      const card = e.target.closest('.game-card');
+      if (!card) return; // 如果点的不是卡片，就不管
 
-  // 海龟汤
-  const turtleCard = document.getElementById('game-card-turtle-soup');
-  if (turtleCard) turtleCard.addEventListener('click', () => openSeaTurtleSoupSetup());
+      const gameType = card.dataset.game; // 获取 data-game 属性的值
+      console.log('点击了游戏卡片:', gameType); // 方便调试
 
-  // 剧本杀
-  const scriptCard = document.getElementById('game-card-script-kill');
-  if (scriptCard) scriptCard.addEventListener('click', () => openScriptKillSetup());
-
-  // 你说我猜
-  const guessCard = document.getElementById('game-card-guess-what');
-  if (guessCard) guessCard.addEventListener('click', () => openGuessWhatSetup());
-
-  // 飞行棋
-  const ludoCard = document.getElementById('game-card-ludo');
-  if (ludoCard) ludoCard.addEventListener('click', () => openLudoSetup());
-
-  // 谁是卧底
-  const undercoverCard = document.getElementById('game-card-undercover');
-  if (undercoverCard) undercoverCard.addEventListener('click', () => openUndercoverSetup());
-  // ▲▲▲ 补全结束 ▲▲▲
+      // 根据暗号跳转到对应的设置页面
+      switch (gameType) {
+        case 'werewolf':
+          openWerewolfSetup();
+          break;
+        case 'sea-turtle-soup':
+          openSeaTurtleSoupSetup();
+          break;
+        case 'script-kill':
+          openScriptKillSetup();
+          break;
+        case 'guess-what':
+          openGuessWhatSetup();
+          break;
+        case 'ludo':
+          openLudoSetup();
+          break;
+        case 'undercover':
+          openUndercoverSetup();
+          break;
+        default:
+          console.warn('未知的游戏类型:', gameType);
+      }
+    });
+  }
+  // ▲▲▲ 修正结束 ▲▲▲
 
   // --- 事件监听结束 ---
 });
