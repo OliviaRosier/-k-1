@@ -242,8 +242,6 @@ document.addEventListener('DOMContentLoaded', () => {
       lastNightKilled: [],
       waitingFor: null,
       gameConfig: { totalPlayers },
-      votedOutPlayers: [], // 记录被放逐的玩家
-      butterflyTarget: null, // 花蝴蝶昨晚守护的目标
     };
 
     // --- 2. 收集玩家信息 ---
@@ -293,13 +291,17 @@ document.addEventListener('DOMContentLoaded', () => {
     werewolfGameState.players.sort(() => Math.random() - 0.5);
 
     // --- 3. 根据人数分配角色 ---
-    const roleConfigs = {
+     const roleConfigs = {
+      // 6人：2狼 + 2民 + 2神（预言家+守卫）
       6: { wolf: 2, villager: 2, seer: 1, guard: 1 },
-      9: { wolf: 3, villager: 2, gravekeeper: 1, seer: 1, witch: 1, hunter: 1 },
-      10: { wolf: 3, villager: 4, seer: 1, witch: 1, hunter: 1 }, // 简单10人
-      12: { wolf: 4, villager: 2, flower_butterfly: 1, gravekeeper: 1, seer: 1, witch: 1, hunter: 1, idiot: 1 },
-      15: { wolf: 4, white_wolf_king: 1, villager: 4, flower_butterfly: 1, gravekeeper: 1, seer: 1, witch: 1, hunter: 1, knight: 1 },
+      
+      // 9人：3狼 + 3民(1民+白痴+守夜人) + 3神(预言家+女巫+猎人)
+      9: { wolf: 3, villager: 1, idiot: 1, gravekeeper: 1, seer: 1, witch: 1, hunter: 1 },
+      
+      // 12人：4狼 + 4民(1民+白痴+守夜人+花蝴蝶) + 4神(预言家+女巫+猎人+猎魔人)
+      12: { wolf: 3, villager: 1, idiot: 1, gravekeeper: 1, butterfly: 1, seer: 1, witch: 1, hunter: 1, demon_hunter: 1 },
     };
+
     // ▼▼▼ 【核心Bug修复】用这块代码替换上面的错误代码 ▼▼▼
     const rolesToAssign = [];
     const config = roleConfigs[totalPlayers];
@@ -326,6 +328,9 @@ document.addEventListener('DOMContentLoaded', () => {
       hunter: '猎人',
       guard: '守卫',
       idiot: '白痴',
+      demon_hunter: '猎魔人',
+      gravekeeper: '守夜人',
+      butterfly: '花蝴蝶',
     };
 
     // 弹窗告知用户身份
@@ -360,6 +365,9 @@ document.addEventListener('DOMContentLoaded', () => {
           hunter: '猎人',
           guard: '守卫',
           idiot: '白痴',
+          demon_hunter: '猎魔人',
+          gravekeeper: '守夜人',
+          butterfly: '花蝴蝶',
         };
         const configText = Object.entries(werewolfGameState.roles)
           .map(([role, count]) => `${roleNameMapForLog[role] || role}x${count}`)
@@ -375,55 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
         werewolfGameState.lastNightKilled = [];
         werewolfGameState.votes = {};
         logToWerewolfGame(`第 ${werewolfGameState.dayNumber} 天，天黑请闭眼。`);
-        werewolfGameState.gamePhase = 'gravekeeper_action'; // 从守夜人开始
-        await sleep(2000);
-        await processGameTurn();
-        break;
-
-      // 【守夜人行动阶段】
-      case 'gravekeeper_action':
-        const gravekeeper = werewolfGameState.players.find(p => p.role === 'gravekeeper' && p.isAlive);
-        if (gravekeeper) {
-          logToWerewolfGame('守夜人请睁眼。');
-          // 检查昨晚被放逐的玩家
-          const lastVotedOutId = werewolfGameState.votedOutPlayers[werewolfGameState.votedOutPlayers.length - 1];
-          if (lastVotedOutId && werewolfGameState.dayNumber > 1) { // 第一天晚上没有放逐
-             const votedOutPlayer = werewolfGameState.players.find(p => p.id === lastVotedOutId);
-             // 简单的身份判断：狼人 vs 好人
-             const isBad = votedOutPlayer.role === 'wolf' || votedOutPlayer.role === 'white_wolf_king';
-             const identity = isBad ? '狼人' : '好人';
-             
-             if (gravekeeper.isUser) {
-                await showCustomAlert('守夜人技能触发', `昨晚被放逐的 ${votedOutPlayer.name} 真实身份是：【${identity}】`);
-             } else {
-                // AI守夜人获得信息（可以通过prompt context传递，这里暂且只记录）
-                // 实际上我们可以给AI发个隐藏消息，但这里简单处理
-             }
-          }
-          logToWerewolfGame('守夜人请闭眼。');
-        }
-        werewolfGameState.gamePhase = 'flower_butterfly_action';
-        await sleep(2000);
-        await processGameTurn();
-        break;
-
-      // 【花蝴蝶行动阶段】
-      case 'flower_butterfly_action':
-        const butterfly = werewolfGameState.players.find(p => p.role === 'flower_butterfly' && p.isAlive);
-        if (butterfly) {
-           logToWerewolfGame('花蝴蝶请睁眼，请选择你要抱住（保护）的玩家。');
-           let protectedId;
-           if (butterfly.isUser) {
-              protectedId = await waitForUserAction('请选择你要保护的玩家', 'guard_protect'); // 复用守卫的UI
-           } else {
-              protectedId = await triggerWerewolfAiAction(butterfly.id, 'guard_protect');
-           }
-           werewolfGameState.butterflyTarget = protectedId;
-           logToWerewolfGame('花蝴蝶请闭眼。');
-        } else {
-           werewolfGameState.butterflyTarget = null;
-        }
-        werewolfGameState.gamePhase = 'guard_action';
+        werewolfGameState.gamePhase = 'guard_action'; // 从守卫开始
         await sleep(2000);
         await processGameTurn();
         break;
@@ -445,10 +405,36 @@ document.addEventListener('DOMContentLoaded', () => {
           werewolfGameState.guardLastNightProtected = protectedId;
           logToWerewolfGame(`守卫请闭眼。`);
         }
-        werewolfGameState.gamePhase = 'wolf_action';
+        werewolfGameState.gamePhase = 'butterfly_action';
         await sleep(2000);
         await processGameTurn();
         break;
+
+      // ▼▼▼ 【新增】花蝴蝶行动阶段 ▼▼▼
+      case 'butterfly_action':
+        const butterfly = werewolfGameState.players.find(p => p.role === 'butterfly' && p.isAlive);
+        if (butterfly) {
+          logToWerewolfGame('花蝴蝶请睁眼，请选择你要庇护的玩家。');
+          let protectedId;
+          if (butterfly.isUser) {
+             // 如果你是花蝴蝶，弹出选择框
+             protectedId = await waitForUserAction('请选择你要庇护(抱住)的玩家', 'guard_protect'); // 复用守卫的UI逻辑即可
+          } else {
+             // AI花蝴蝶随机或逻辑选择
+             protectedId = await triggerWerewolfAiAction(butterfly.id, 'guard_protect'); 
+          }
+          // 记录花蝴蝶今晚抱了谁
+          werewolfGameState.butterflyTarget = protectedId;
+          logToWerewolfGame(`花蝴蝶请闭眼。`);
+        } else {
+          // 如果没花蝴蝶或死了，重置目标
+          werewolfGameState.butterflyTarget = null;
+        }
+        werewolfGameState.gamePhase = 'wolf_action'; // 下一步是狼人
+        await sleep(2000);
+        await processGameTurn();
+        break;
+      // ▲▲▲ 新增结束 ▲▲▲
 
       // ▼▼▼ 用这块【狼人频道增强+平票处理版】的代码替换旧的 'wolf_action' case ▼▼▼
       case 'wolf_action':
@@ -597,7 +583,37 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
         logToWerewolfGame(`女巫请闭眼。`);
-        werewolfGameState.gamePhase = 'day_start';
+        werewolfGameState.gamePhase = 'demon_hunter_action';
+        await sleep(2000);
+        await processGameTurn();
+        break;
+
+      // 【新增】猎魔人行动
+      case 'demon_hunter_action':
+        const hunter = werewolfGameState.players.find(p => p.role === 'demon_hunter' && p.isAlive);
+        if (hunter) {
+          logToWerewolfGame('猎魔人请睁眼，请选择你要狩猎的目标。');
+          let targetId;
+          if (hunter.isUser) {
+             targetId = await waitForUserAction('请选择狩猎目标(若是好人你会死)', 'wolf_kill'); 
+          } else {
+             targetId = await triggerWerewolfAiAction(hunter.id, 'wolf_kill'); 
+          }
+          
+          if (targetId) {
+             const target = werewolfGameState.players.find(p => p.id === targetId);
+             // 判定逻辑：如果是狼人，狼人死；如果是好人，猎魔人自己死
+             if (target.role === 'wolf') {
+                 werewolfGameState.demonHunterKilled = targetId; 
+             } else {
+                 werewolfGameState.demonHunterKilled = hunter.id; 
+             }
+          }
+          logToWerewolfGame(`猎魔人请闭眼。`);
+        } else {
+          werewolfGameState.demonHunterKilled = null;
+        }
+        werewolfGameState.gamePhase = 'day_start'; // 下一步 -> 天亮
         await sleep(2000);
         await processGameTurn();
         break;
@@ -607,29 +623,28 @@ document.addEventListener('DOMContentLoaded', () => {
         let deathAnnouncements = [];
         const deathsThisNight = new Set();
 
+        // 结算狼刀 (被守卫守 OR 被花蝴蝶抱 = 平安夜)
         werewolfGameState.lastNightKilled.forEach(killedId => {
-          const isGuarded = killedId === werewolfGameState.guardLastNightProtected;
-          const isProtectedByButterfly = killedId === werewolfGameState.butterflyTarget;
-          
-          if (isGuarded || isProtectedByButterfly) {
-            logToWerewolfGame(
-              `昨晚 ${werewolfGameState.players.find(p => p.id === killedId).name} 被袭击但同时也被守护了。`,
-            );
+          const isGuarded = (killedId === werewolfGameState.guardLastNightProtected);
+          const isButterflyProtected = (killedId === werewolfGameState.butterflyTarget);
+
+          if (isGuarded || isButterflyProtected) {
+            let protectMsg = `昨晚 ${werewolfGameState.players.find(p => p.id === killedId).name} 被袭击`;
+            if (isGuarded) protectMsg += '，但被守卫守护了。';
+            if (isButterflyProtected) protectMsg += '，但被花蝴蝶庇护了。';
+            logToWerewolfGame(protectMsg);
           } else {
             deathsThisNight.add(killedId);
           }
         });
 
-        // 检查花蝴蝶殉情 (如果是昨晚死的)
-        const butterfly = werewolfGameState.players.find(p => p.role === 'flower_butterfly' && p.isAlive);
-        if (butterfly && werewolfGameState.butterflyTarget) {
-           // 如果守护对象在昨晚死亡列表中
-           if (deathsThisNight.has(werewolfGameState.butterflyTarget)) {
-              deathsThisNight.add(butterfly.id);
-              deathAnnouncements.push(`${butterfly.name} 因为守护对象死亡而殉情了。`);
-           }
+        // 结算猎魔人技能 (猎魔人杀狼 OR 猎魔人自杀)
+        if (werewolfGameState.demonHunterKilled) {
+            // 猎魔人技能无视守卫和花蝴蝶，直接致死
+            deathsThisNight.add(werewolfGameState.demonHunterKilled);
         }
 
+        // 处理名单
         if (deathsThisNight.size === 0) {
           logToWerewolfGame('昨晚是一个平安夜。');
         } else {
@@ -646,6 +661,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderWerewolfGameScreen();
         if (checkGameOver()) return;
 
+        // 猎人开枪逻辑
         let hunterDied = null;
         deathsThisNight.forEach(deadId => {
           const deadPlayer = werewolfGameState.players.find(p => p.id === deadId);
@@ -665,6 +681,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const targetPlayer = werewolfGameState.players.find(p => p.id === targetId);
             targetPlayer.isAlive = false;
             logToWerewolfGame(`猎人开枪带走了 ${targetPlayer.name}。`);
+
+            // ★ 特殊处理：如果猎人带走的是花蝴蝶抱的人，花蝴蝶也要殉情
+            if (werewolfGameState.butterflyTarget === targetId) {
+                 const butterfly = werewolfGameState.players.find(p => p.role === 'butterfly' && p.isAlive);
+                 if (butterfly) {
+                     butterfly.isAlive = false;
+                     logToWerewolfGame(`😱 噩耗：花蝴蝶 ${butterfly.name} 因庇护对象死亡，随之殉情！`);
+                 }
+            }
+
             renderWerewolfGameScreen();
             if (checkGameOver()) return;
           }
@@ -678,92 +704,15 @@ document.addEventListener('DOMContentLoaded', () => {
       case 'day_discussion':
         logToWerewolfGame('现在开始依次发言。');
         const alivePlayersForSpeech = werewolfGameState.players.filter(p => p.isAlive);
-        
-        // 使用普通for循环以便控制流程
-        for (let i = 0; i < alivePlayersForSpeech.length; i++) {
-          const player = alivePlayersForSpeech[i];
-          if (!player.isAlive) continue; // 可能在前一个人的回合被骑士决斗死了
-
+        for (const player of alivePlayersForSpeech) {
           renderWerewolfGameScreen({ speakingPlayerId: player.id });
-          let result;
-          
-          // 检查是否有技能可用
-          let skillConfig = null;
-          if (player.isUser && !player.hasUsedSkill) {
-             if (player.role === 'white_wolf_king') {
-                skillConfig = { name: '自爆带人', type: 'white_wolf_king_explode' };
-             } else if (player.role === 'knight') {
-                skillConfig = { name: '发动决斗', type: 'knight_duel' };
-             }
-          }
-
+          let speech;
           if (player.isUser) {
-            result = await waitForUserAction('轮到你发言', 'speak', { skillConfig });
+            speech = await waitForUserAction('轮到你发言', 'speak');
           } else {
-            result = await triggerWerewolfAiAction(player.id, 'speak');
+            speech = await triggerWerewolfAiAction(player.id, 'speak');
           }
-
-          // 处理技能触发
-          if (result && typeof result === 'object' && result.action === 'skill_trigger') {
-             player.hasUsedSkill = true; // 标记已使用
-
-             if (result.skillType === 'white_wolf_king_explode') {
-                logToWerewolfGame(`${player.name} 选择自爆！`);
-                player.isAlive = false;
-                
-                // 选择带走的人
-                let targetId = await waitForUserAction('请选择你要带走的玩家', 'hunter_shoot'); // 复用猎人界面
-                if (targetId) {
-                   const target = werewolfGameState.players.find(p => p.id === targetId);
-                   target.isAlive = false;
-                   logToWerewolfGame(`白狼王带走了 ${target.name}。`);
-                   
-                   // 检查花蝴蝶
-                   const butterfly = werewolfGameState.players.find(p => p.role === 'flower_butterfly' && p.isAlive);
-                   if (butterfly && werewolfGameState.butterflyTarget === target.id) {
-                      butterfly.isAlive = false;
-                      logToWerewolfGame(`${butterfly.name} 因为守护对象被白狼王带走而殉情了。`);
-                   }
-                }
-                renderWerewolfGameScreen();
-                if (checkGameOver()) return;
-                
-                // 白狼王自爆，直接进入黑夜
-                werewolfGameState.gamePhase = 'night_start';
-                await sleep(3000);
-                await processGameTurn();
-                return; // 结束当前 processGameTurn
-             } 
-             else if (result.skillType === 'knight_duel') {
-                logToWerewolfGame(`${player.name} 发动骑士决斗技能！`);
-                let targetId = await waitForUserAction('请选择决斗目标', 'hunter_shoot'); // 复用选择界面
-                if (targetId) {
-                   const target = werewolfGameState.players.find(p => p.id === targetId);
-                   logToWerewolfGame(`${player.name} 与 ${target.name} 进行决斗...`);
-                   
-                   const isWolf = target.role === 'wolf' || target.role === 'white_wolf_king';
-                   if (isWolf) {
-                      target.isAlive = false;
-                      logToWerewolfGame(`${target.name} 是狼人，被骑士击杀！`);
-                      // 检查花蝴蝶
-                       const butterfly = werewolfGameState.players.find(p => p.role === 'flower_butterfly' && p.isAlive);
-                       if (butterfly && werewolfGameState.butterflyTarget === target.id) {
-                          butterfly.isAlive = false;
-                          logToWerewolfGame(`${butterfly.name} 因为守护对象死亡而殉情了。`);
-                       }
-                   } else {
-                      player.isAlive = false;
-                      logToWerewolfGame(`${target.name} 是好人，骑士以死谢罪。`);
-                   }
-                   renderWerewolfGameScreen();
-                   if (checkGameOver()) return;
-                }
-                // 决斗结束，继续发言? 通常骑士决斗后该玩家回合结束
-             }
-          } else {
-             // 普通发言
-             logToWerewolfGame({ player: player, speech: result }, 'speech');
-          }
+          logToWerewolfGame({ player: player, speech: speech }, 'speech');
           await sleep(1000);
         }
         renderWerewolfGameScreen();
@@ -803,43 +752,62 @@ document.addEventListener('DOMContentLoaded', () => {
         if (playersToEliminate.length === 1) {
           const eliminatedPlayer = werewolfGameState.players.find(p => p.id === playersToEliminate[0]);
           eliminatedPlayer.isAlive = false;
-          // 记录被放逐的玩家 (供守夜人查验)
-          werewolfGameState.votedOutPlayers.push(eliminatedPlayer.id);
-
           logToWerewolfGame(`投票结果：${eliminatedPlayer.name} 被淘汰。`);
 
-          // 检查花蝴蝶殉情
-          const butterfly = werewolfGameState.players.find(p => p.role === 'flower_butterfly' && p.isAlive);
-          if (butterfly && werewolfGameState.butterflyTarget === eliminatedPlayer.id) {
-             butterfly.isAlive = false;
-             logToWerewolfGame(`${butterfly.name} 因为守护对象被放逐而殉情了。`);
+
+          // ▼▼▼ 【新增】守夜人逻辑 ▼▼▼
+          const gravekeeper = werewolfGameState.players.find(p => p.role === 'gravekeeper' && p.isAlive);
+          if (gravekeeper) {
+             const isBad = eliminatedPlayer.role === 'wolf';
+             const checkResult = isBad ? '狼人' : '好人';
+             // 如果用户是守夜人，弹窗告知
+             if (gravekeeper.isUser) {
+                 await showCustomAlert('守夜人技能触发', `你看到被放逐的 ${eliminatedPlayer.name} 是【${checkResult}】。`);
+             } else {
+                 // 如果AI是守夜人，给它发个暗号日志（或者咱们简单点，直接在公屏打个只有守夜人能懂的暗语，这里为了简化先略过AI内部逻辑）
+                 // 也可以选择仅给用户看日志:
+                 // logToWerewolfGame(`(守夜人默默确认了死者身份...)`, 'system');
+             }
           }
+          // ▲▲▲ 守夜人逻辑结束 ▲▲▲
+
+          // ▼▼▼ 【新增】花蝴蝶殉情逻辑 ▼▼▼
+          // 如果今天死的人，是花蝴蝶昨晚抱住的人 (butterflyTarget)
+          if (werewolfGameState.butterflyTarget === eliminatedPlayer.id) {
+             const butterfly = werewolfGameState.players.find(p => p.role === 'butterfly' && p.isAlive);
+             if (butterfly) {
+                 butterfly.isAlive = false;
+                 logToWerewolfGame(`😱 噩耗：因为 ${eliminatedPlayer.name} 离去，花蝴蝶 ${butterfly.name} 伤心欲绝，随之殉情而去！`);
+             }
+          }
+          // ▲▲▲ 花蝴蝶逻辑结束 ▲▲▲
 
           renderWerewolfGameScreen();
           if (checkGameOver()) return;
-          if (eliminatedPlayer.role === 'hunter' || eliminatedPlayer.role === 'white_wolf_king') { // 白狼王自爆也能带人? 不，白狼王是被放逐时不能带人，自爆时才能。猎人是被放逐或死时。
-            if (eliminatedPlayer.role === 'hunter') {
-               logToWerewolfGame(`${eliminatedPlayer.name} 是猎人，可以选择一名玩家带走。`);
-               let targetId;
-               if (eliminatedPlayer.isUser) {
-                 targetId = await waitForUserAction('请选择你要带走的玩家', 'hunter_shoot');
-               } else {
-                 targetId = await triggerWerewolfAiAction(eliminatedPlayer.id, 'hunter_shoot');
-               }
-               if (targetId) {
-                 const targetPlayer = werewolfGameState.players.find(p => p.id === targetId);
-                 targetPlayer.isAlive = false;
-                 logToWerewolfGame(`猎人开枪带走了 ${targetPlayer.name}。`);
-                 
-                 // 检查花蝴蝶殉情 (被猎人带走)
-                 if (butterfly && butterfly.isAlive && werewolfGameState.butterflyTarget === targetPlayer.id) {
-                    butterfly.isAlive = false;
-                    logToWerewolfGame(`${butterfly.name} 因为守护对象被猎人带走而殉情了。`);
+          if (eliminatedPlayer.role === 'hunter') {
+            logToWerewolfGame(`${eliminatedPlayer.name} 是猎人，可以选择一名玩家带走。`);
+            let targetId;
+            if (eliminatedPlayer.isUser) {
+              targetId = await waitForUserAction('请选择你要带走的玩家', 'hunter_shoot');
+            } else {
+              targetId = await triggerWerewolfAiAction(eliminatedPlayer.id, 'hunter_shoot');
+            }
+            if (targetId) {
+              const targetPlayer = werewolfGameState.players.find(p => p.id === targetId);
+              targetPlayer.isAlive = false;
+              logToWerewolfGame(`猎人开枪带走了 ${targetPlayer.name}。`);
+
+              // ★ 猎人带走的人如果是花蝴蝶的对象，花蝴蝶也死
+              if (werewolfGameState.butterflyTarget === targetId) {
+                 const butterfly = werewolfGameState.players.find(p => p.role === 'butterfly' && p.isAlive);
+                 if (butterfly) {
+                     butterfly.isAlive = false;
+                     logToWerewolfGame(`😱 噩耗：花蝴蝶 ${butterfly.name} 随之殉情！`);
                  }
-                 
-                 renderWerewolfGameScreen();
-                 if (checkGameOver()) return;
-               }
+              }
+              
+              renderWerewolfGameScreen();
+              if (checkGameOver()) return;
             }
           }
         } else {
@@ -1233,9 +1201,9 @@ ${formattedLog}
   // ▼▼▼ 用这个【修正后】的函数替换旧的 checkGameOver ▼▼▼
   function checkGameOver() {
     const alivePlayers = werewolfGameState.players.filter(p => p.isAlive);
-    const aliveWolves = alivePlayers.filter(p => p.role === 'wolf' || p.role === 'white_wolf_king').length;
-    const aliveGods = alivePlayers.filter(p => ['seer', 'witch', 'hunter', 'guard', 'idiot', 'knight'].includes(p.role)).length;
-    const aliveVillagers = alivePlayers.filter(p => p.role === 'villager' || p.role === 'flower_butterfly' || p.role === 'gravekeeper').length; // 花蝴蝶和守夜人算民还是神？题目说花蝴蝶是民位，守夜人是民位。
+    const aliveWolves = alivePlayers.filter(p => p.role === 'wolf').length;
+    const aliveGods = alivePlayers.filter(p => ['seer', 'witch', 'hunter', 'guard', 'demon_hunter'].includes(p.role)).length;
+    const aliveVillagers = alivePlayers.filter(p => p.role === ['villager', 'idiot', 'gravekeeper', 'butterfly']).length;
 
     let winner = null;
 
@@ -1252,11 +1220,14 @@ ${formattedLog}
       const roleNameMap = {
         wolf: '狼人',
         villager: '平民',
+        gravekeeper: '守夜人',
+        butterfly: '花蝴蝶',
         seer: '预言家',
         witch: '女巫',
         hunter: '猎人',
         guard: '守卫',
         idiot: '白痴',
+        demon_hunter: '猎魔人',
       };
       const rolesReveal = werewolfGameState.players.map(p => `${p.name}: ${roleNameMap[p.role] || p.role}`).join('\n');
       logToWerewolfGame(`身份公布:\n${rolesReveal}`);
@@ -1324,22 +1295,6 @@ ${formattedLog}
 
         actionArea.appendChild(textarea);
         actionArea.appendChild(endBtn);
-        
-        // ★★★ 技能按钮 ★★★
-        if (context.skillConfig) {
-           const skillBtn = document.createElement('button');
-           skillBtn.className = 'form-button form-button-danger'; // 红色按钮
-           skillBtn.style.marginLeft = '8px';
-           skillBtn.textContent = context.skillConfig.name;
-           skillBtn.onclick = () => {
-              if (confirm(`确定要使用技能【${context.skillConfig.name}】吗？这可能无法撤销。`)) {
-                 actionArea.innerHTML = '';
-                 actionArea.classList.remove('speaking-mode');
-                 resolve({ action: 'skill_trigger', skillType: context.skillConfig.type });
-              }
-           };
-           actionArea.appendChild(skillBtn);
-        }
 
         textarea.focus();
 
