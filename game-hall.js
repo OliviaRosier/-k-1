@@ -299,7 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
       9: { wolf: 3, villager: 1, idiot: 1, gravekeeper: 1, seer: 1, witch: 1, hunter: 1 },
       
       // 12人：4狼 + 4民(1民+白痴+守夜人+花蝴蝶) + 4神(预言家+女巫+猎人+猎魔人)
-      12: { wolf: 3, villager: 1, idiot: 1, gravekeeper: 1, butterfly: 1, seer: 1, witch: 1, hunter: 1, demon_hunter: 1 },
+      12: { wolf: 4, villager: 1, idiot: 1, gravekeeper: 1, butterfly: 1, seer: 1, witch: 1, hunter: 1, demon_hunter: 1 },
     };
 
     // ▼▼▼ 【核心Bug修复】用这块代码替换上面的错误代码 ▼▼▼
@@ -418,10 +418,10 @@ document.addEventListener('DOMContentLoaded', () => {
           let protectedId;
           if (butterfly.isUser) {
              // 如果你是花蝴蝶，弹出选择框
-             protectedId = await waitForUserAction('请选择你要庇护(抱住)的玩家', 'butterfly_action'); // 复用守卫的UI逻辑即可
+             protectedId = await waitForUserAction('请选择你要庇护(抱住)的玩家', 'guard_protect'); // 复用守卫的UI逻辑即可
           } else {
              // AI花蝴蝶随机或逻辑选择
-             targetId = await triggerWerewolfAiAction(butterfly.id, 'butterfly_action'); 
+             protectedId = await triggerWerewolfAiAction(butterfly.id, 'guard_protect'); 
           }
           // 记录花蝴蝶今晚抱了谁
           werewolfGameState.butterflyTarget = protectedId;
@@ -595,9 +595,9 @@ document.addEventListener('DOMContentLoaded', () => {
           logToWerewolfGame('猎魔人请睁眼，请选择你要狩猎的目标。');
           let targetId;
           if (hunter.isUser) {
-             targetId = await waitForUserAction('请选择狩猎目标(若是好人你会死)', 'demon_hunter_action'); 
+             targetId = await waitForUserAction('请选择狩猎目标(若是好人你会死)', 'wolf_kill'); 
           } else {
-             targetId = await triggerWerewolfAiAction(hunter.id, 'demon_hunter_action'); 
+             targetId = await triggerWerewolfAiAction(hunter.id, 'wolf_kill'); 
           }
           
           if (targetId) {
@@ -1431,20 +1431,35 @@ ${formattedLog}
 
     // 3. 根据不同的行动类型，生成具体的任务描述和输出格式要求
     switch (action) {
+      // --- 守护类逻辑 (守卫 & 花蝴蝶) ---
       case 'guard_protect':
-        actionPrompt = '你是守卫，请选择一名玩家进行守护。你不能连续两晚守护同一个人。';
-        jsonFormat = '{"action": "vote", "targetId": "你选择守护的玩家ID"}';
-        if (werewolfGameState.guardLastNightProtected)
-          extraContext = `\n- 提示: 你昨晚守护了 ${
-            werewolfGameState.players.find(p => p.id === werewolfGameState.guardLastNightProtected).name
-          }。`;
+        // 情况A：如果你是花蝴蝶
+        if (player.role === 'butterfly') {
+            actionPrompt = '你是花蝴蝶。请选择一名玩家进行“庇护”。注意：如果该玩家出局，你也会殉情；如果你出局，该玩家也会殉情。这是一把双刃剑，请根据局势谨慎选择你需要保护或绑定的对象。';
+        } 
+        // 情况B：如果你是守卫
+        else {
+            actionPrompt = '你是守卫，请选择一名玩家进行守护，防止他被狼人杀害。你不能连续两晚守护同一个人。';
+            
+            // ★这里保留了你原本的逻辑：提醒守卫昨晚守了谁★
+            if (werewolfGameState.guardLastNightProtected) {
+                // 找到昨晚被守玩家的名字
+                const lastTarget = werewolfGameState.players.find(p => p.id === werewolfGameState.guardLastNightProtected);
+                if (lastTarget) {
+                    extraContext += `\n- **规则提示**: 你昨晚守护了 ${lastTarget.name}，今晚不能再守护他。`;
+                }
+            }
+        }
+        jsonFormat = '{"action": "vote", "targetId": "你选择的目标ID"}';
         break;
-      case 'butterfly_action':
-        actionPrompt = '你是花蝴蝶。请选择一名玩家进行“庇护”（魅惑）。\n【风险提示】：这是一把双刃剑！\n1. 如果你死了，他也会死（殉情）。\n2. 如果他死了，你也会死。\n请根据局势，选择一个你想要“绑定”的对象。';
-        jsonFormat = '{"action": "vote", "targetId": "你选择绑定的玩家ID"}';
-        break;
+
+      // --- 攻击类逻辑 (狼人 & 猎魔人) ---
       case 'wolf_kill':
-        const wolfTeammates = werewolfGameState.players
+      if (player.role === 'demon_hunter') {
+            actionPrompt = '你是猎魔人。今晚你可以选择一名玩家进行“狩猎”。如果你狩猎的是狼人，狼人死亡；如果你狩猎的是好人，你会因滥杀无辜而死。请根据场上局势，判断谁最像狼人。如果不确定，可以选择不行动（很少见，通常会赌一把）。';
+        } else {
+            // 普通狼人逻辑
+            const wolfTeammates = werewolfGameState.players
           .filter(p => p.role === 'wolf' && p.id !== player.id)
           .map(w => w.name)
           .join('、');
@@ -1455,10 +1470,6 @@ ${formattedLog}
         }
         extraContext += `\n# 狼人战术指令 (至关重要)\n- **团队合作**: 你的首要目标是和你的狼队友们【集火】同一个目标，以确保击杀成功。\n- **攻击优先级**: 请优先攻击你认为是【预言家】、【女巫】等神职的玩家，或者发言逻辑清晰、对狼人阵营威胁大的好人。`;
         jsonFormat = '{"action": "vote", "targetId": "你选择攻击的玩家ID"}';
-        break;
-      case 'demon_hunter_action':
-        actionPrompt = '你是猎魔人。今晚是你的狩猎时刻。\n【规则】：\n1. 如果你选的是狼人，狼人死。\n2. 如果你选的是好人，你会因滥杀无辜而死。\n请仔细判断，或者选择不行动（虽然很少见）。';
-        jsonFormat = '{"action": "vote", "targetId": "你选择狩猎的目标ID"}';
         break;
       case 'seer_check':
         actionPrompt = '你是预言家，请选择一名玩家查验其身份（好人或狼人）。';
@@ -1480,7 +1491,7 @@ ${formattedLog}
         break;
       case 'speak':
         actionPrompt =
-          '现在轮到你发言。请根据你的角色身份、人设和当前局势，发表你的看法，可以撒谎或引导。你的发言应该围绕游戏本身，而不是只和用户聊天。';
+          '现在轮到你发言。请根据你的角色身份、人设和当前局势，发表你的看法，可以撒谎或引导。如果你是守夜人、花蝴蝶等特殊身份，请根据局势决定是否跳身份。你的发言应该围绕游戏本身，而不是只和用户聊天。';
         jsonFormat = '{"action": "speak", "speech": "你的发言内容..."}';
         break;
       case 'vote':
@@ -7726,4 +7737,3 @@ ${jsonFormat}
   }
   // --- 事件监听结束 ---
 });
-
