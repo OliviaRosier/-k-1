@@ -1431,15 +1431,6 @@ ${formattedLog}
 
     // 3. 根据不同的行动类型，生成具体的任务描述和输出格式要求
     switch (action) {
-      case 'guard_protect':
-        actionPrompt = '你是守卫，请选择一名玩家进行守护。你不能连续两晚守护同一个人。';
-        jsonFormat = '{"action": "vote", "targetId": "你选择守护的玩家ID"}';
-        if (werewolfGameState.guardLastNightProtected)
-          extraContext = `\n- 提示: 你昨晚守护了 ${
-            werewolfGameState.players.find(p => p.id === werewolfGameState.guardLastNightProtected).name
-          }。`;
-        break;
-
       // --- 守护类逻辑 (守卫 & 花蝴蝶) ---
       case 'guard_protect':
         // 情况A：如果你是花蝴蝶
@@ -7746,4 +7737,3 @@ ${jsonFormat}
   }
   // --- 事件监听结束 ---
 });
-
