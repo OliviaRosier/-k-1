@@ -7637,44 +7637,36 @@ ${jsonFormat}
     });
   }
   
-  // ▼▼▼ 【修正版】游戏大厅卡片点击跳转 (基于 data-game 属性) ▼▼▼
-  // 我们监听整个游戏列表容器，这样更稳健
-  const gameGrid = document.getElementById('game-hall-grid');
-  if (gameGrid) {
-    gameGrid.addEventListener('click', (e) => {
-      // 找到被点击的卡片（处理卡片内部元素的点击）
-      const card = e.target.closest('.game-card');
-      if (!card) return; // 如果点的不是卡片，就不管
+  // ▼▼▼ 用这块【已添加飞行棋】的代码，替换旧的 game-hall-grid 事件监听器 ▼▼▼
+  document.getElementById('game-hall-grid').addEventListener('click', e => {
+    const gameCard = e.target.closest('.game-card');
+    if (!gameCard) return;
 
-      const gameType = card.dataset.game; // 获取 data-game 属性的值
-      console.log('点击了游戏卡片:', gameType); // 方便调试
-
-      // 根据暗号跳转到对应的设置页面
-      switch (gameType) {
-        case 'werewolf':
-          openWerewolfSetup();
-          break;
-        case 'sea-turtle-soup':
-          openSeaTurtleSoupSetup();
-          break;
-        case 'script-kill':
-          openScriptKillSetup();
-          break;
-        case 'guess-what':
-          openGuessWhatSetup();
-          break;
-        case 'ludo':
-          openLudoSetup();
-          break;
-        case 'undercover':
-          openUndercoverSetup();
-          break;
-        default:
-          console.warn('未知的游戏类型:', gameType);
-      }
-    });
-  }
-  // ▲▲▲ 修正结束 ▲▲▲
+    const gameId = gameCard.dataset.game;
+    if (gameId === 'werewolf') {
+      openWerewolfSetup();
+    } else if (gameId === 'sea-turtle-soup') {
+      openSeaTurtleSoupSetup();
+    } else if (gameId === 'script-kill') {
+      openScriptKillSetup();
+    } else if (gameId === 'guess-what') {
+      openGuessWhatSetup();
+    }
+    // ★★★ 这就是我们新增的分支 ★★★
+    else if (gameId === 'ludo') {
+      openLudoSetup(); // 调用我们新写的函数
+    }
+    // ★★★ 新增结束 ★★★
+    // ▼▼▼ 在这里添加新的 else if 分支 ▼▼▼
+    else if (gameId === 'undercover') {
+      openUndercoverSetup();
+    }
+    // ▲▲▲ 新增代码结束 ▲▲▲
+    else {
+      alert(`"${gameCard.querySelector('.game-title').textContent}"还在开发中，敬请期待！`);
+    }
+  });
+  // ▲▲▲ 替换结束 ▲▲▲
 
   // --- 事件监听结束 ---
 });
