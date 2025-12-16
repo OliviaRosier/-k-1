@@ -418,10 +418,10 @@ document.addEventListener('DOMContentLoaded', () => {
           let protectedId;
           if (butterfly.isUser) {
              // 如果你是花蝴蝶，弹出选择框
-             protectedId = await waitForUserAction('请选择你要庇护(抱住)的玩家', 'guard_protect'); // 复用守卫的UI逻辑即可
+             protectedId = await waitForUserAction('请选择你要庇护(抱住)的玩家', 'butterfly_action'); // 复用守卫的UI逻辑即可
           } else {
              // AI花蝴蝶随机或逻辑选择
-             protectedId = await triggerWerewolfAiAction(butterfly.id, 'guard_protect'); 
+             targetId = await triggerWerewolfAiAction(butterfly.id, 'butterfly_action'); 
           }
           // 记录花蝴蝶今晚抱了谁
           werewolfGameState.butterflyTarget = protectedId;
@@ -595,9 +595,9 @@ document.addEventListener('DOMContentLoaded', () => {
           logToWerewolfGame('猎魔人请睁眼，请选择你要狩猎的目标。');
           let targetId;
           if (hunter.isUser) {
-             targetId = await waitForUserAction('请选择狩猎目标(若是好人你会死)', 'wolf_kill'); 
+             targetId = await waitForUserAction('请选择狩猎目标(若是好人你会死)', 'demon_hunter_action'); 
           } else {
-             targetId = await triggerWerewolfAiAction(hunter.id, 'wolf_kill'); 
+             targetId = await triggerWerewolfAiAction(hunter.id, 'demon_hunter_action'); 
           }
           
           if (targetId) {
@@ -1203,7 +1203,7 @@ ${formattedLog}
     const alivePlayers = werewolfGameState.players.filter(p => p.isAlive);
     const aliveWolves = alivePlayers.filter(p => p.role === 'wolf').length;
     const aliveGods = alivePlayers.filter(p => ['seer', 'witch', 'hunter', 'guard', 'demon_hunter'].includes(p.role)).length;
-    const aliveVillagers = alivePlayers.filter(p => p.role === ['villager', 'idiot', 'gravekeeper', 'butterfly']).length;
+    const aliveVillagers = alivePlayers.filter(p => ['villager', 'idiot', 'gravekeeper', 'butterfly'].includes(p.role)).length;
 
     let winner = null;
 
@@ -1439,6 +1439,10 @@ ${formattedLog}
             werewolfGameState.players.find(p => p.id === werewolfGameState.guardLastNightProtected).name
           }。`;
         break;
+      case 'butterfly_action':
+        actionPrompt = '你是花蝴蝶。请选择一名玩家进行“庇护”（魅惑）。\n【风险提示】：这是一把双刃剑！\n1. 如果你死了，他也会死（殉情）。\n2. 如果他死了，你也会死。\n请根据局势，选择一个你想要“绑定”的对象。';
+        jsonFormat = '{"action": "vote", "targetId": "你选择绑定的玩家ID"}';
+        break;
       case 'wolf_kill':
         const wolfTeammates = werewolfGameState.players
           .filter(p => p.role === 'wolf' && p.id !== player.id)
@@ -1451,6 +1455,10 @@ ${formattedLog}
         }
         extraContext += `\n# 狼人战术指令 (至关重要)\n- **团队合作**: 你的首要目标是和你的狼队友们【集火】同一个目标，以确保击杀成功。\n- **攻击优先级**: 请优先攻击你认为是【预言家】、【女巫】等神职的玩家，或者发言逻辑清晰、对狼人阵营威胁大的好人。`;
         jsonFormat = '{"action": "vote", "targetId": "你选择攻击的玩家ID"}';
+        break;
+      case 'demon_hunter_action':
+        actionPrompt = '你是猎魔人。今晚是你的狩猎时刻。\n【规则】：\n1. 如果你选的是狼人，狼人死。\n2. 如果你选的是好人，你会因滥杀无辜而死。\n请仔细判断，或者选择不行动（虽然很少见）。';
+        jsonFormat = '{"action": "vote", "targetId": "你选择狩猎的目标ID"}';
         break;
       case 'seer_check':
         actionPrompt = '你是预言家，请选择一名玩家查验其身份（好人或狼人）。';
@@ -7718,3 +7726,4 @@ ${jsonFormat}
   }
   // --- 事件监听结束 ---
 });
+
