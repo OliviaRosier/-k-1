@@ -1346,7 +1346,7 @@ ${formattedLog}
       }
 
       let targets = [];
-      if (['guard_protect', 'seer_check', 'hunter_shoot', 'witch_poison_target'].includes(actionType)) {
+      if (['guard_protect', 'seer_check', 'hunter_shoot', 'witch_poison_target', 'butterfly_action','demon_hunter_action'].includes(actionType)) {
         targets = werewolfGameState.players.filter(p => p.isAlive);
       } else if (actionType === 'wolf_kill') {
         targets = werewolfGameState.players.filter(p => p.isAlive && p.role !== 'wolf');
@@ -1357,6 +1357,11 @@ ${formattedLog}
       // ★★★ 针对猎人开枪的特殊目标筛选 ★★★
       // 如果是猎人开枪，目标不应该包括自己
       if (actionType === 'hunter_shoot') {
+        targets = targets.filter(p => p.id !== me.id);
+      }
+
+      // ★ 猎魔人也不能狩猎自己
+      if (actionType === 'demon_hunter_action') {
         targets = targets.filter(p => p.id !== me.id);
       }
 
