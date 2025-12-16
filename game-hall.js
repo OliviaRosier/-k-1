@@ -7636,37 +7636,6 @@ ${jsonFormat}
       e.target.value = null; // 清空，以便下次能选择同一个文件
     });
   }
-  
-  // ▼▼▼ 用这块【已添加飞行棋】的代码，替换旧的 game-hall-grid 事件监听器 ▼▼▼
-  document.getElementById('game-hall-grid').addEventListener('click', e => {
-    const gameCard = e.target.closest('.game-card');
-    if (!gameCard) return;
-
-    const gameId = gameCard.dataset.game;
-    if (gameId === 'werewolf') {
-      openWerewolfSetup();
-    } else if (gameId === 'sea-turtle-soup') {
-      openSeaTurtleSoupSetup();
-    } else if (gameId === 'script-kill') {
-      openScriptKillSetup();
-    } else if (gameId === 'guess-what') {
-      openGuessWhatSetup();
-    }
-    // ★★★ 这就是我们新增的分支 ★★★
-    else if (gameId === 'ludo') {
-      openLudoSetup(); // 调用我们新写的函数
-    }
-    // ★★★ 新增结束 ★★★
-    // ▼▼▼ 在这里添加新的 else if 分支 ▼▼▼
-    else if (gameId === 'undercover') {
-      openUndercoverSetup();
-    }
-    // ▲▲▲ 新增代码结束 ▲▲▲
-    else {
-      alert(`"${gameCard.querySelector('.game-title').textContent}"还在开发中，敬请期待！`);
-    }
-  });
-  // ▲▲▲ 替换结束 ▲▲▲
 
   // --- 事件监听结束 ---
 });
