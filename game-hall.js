@@ -1346,7 +1346,7 @@ ${formattedLog}
       }
 
       let targets = [];
-      if (['guard_protect', 'seer_check', 'hunter_shoot', 'witch_poison_target'].includes(actionType)) {
+      if (['guard_protect', 'seer_check', 'hunter_shoot', 'witch_poison_target', 'butterfly_action', 'demon_hunter_action'].includes(actionType)) {
         targets = werewolfGameState.players.filter(p => p.isAlive);
       } else if (actionType === 'wolf_kill') {
         targets = werewolfGameState.players.filter(p => p.isAlive && p.role !== 'wolf');
