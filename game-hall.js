@@ -1203,7 +1203,7 @@ ${formattedLog}
     const alivePlayers = werewolfGameState.players.filter(p => p.isAlive);
     const aliveWolves = alivePlayers.filter(p => p.role === 'wolf').length;
     const aliveGods = alivePlayers.filter(p => ['seer', 'witch', 'hunter', 'guard', 'demon_hunter'].includes(p.role)).length;
-    const aliveVillagers = alivePlayers.filter(p => ['villager', 'idiot', 'gravekeeper', 'butterfly']).includes(p.role)).length;
+    const aliveVillagers = alivePlayers.filter(p => ['villager', 'idiot', 'gravekeeper', 'butterfly'].includes(p.role)).length;
 
     let winner = null;
 
@@ -7718,3 +7718,4 @@ ${jsonFormat}
   }
   // --- 事件监听结束 ---
 });
+
